@@ -18,13 +18,14 @@ endif
 
 " Keywords to indent after
 let g:INDENT_AFTER = '\v^<%(if|else|for|while|function|switch|case|begin)>'
-let g:CONTINUATION = '\v\$'
+let g:CONTINUATION = '\v\\$'
 let g:OUTDENT_DURING = '\v^<%(else|case|end)>'
+let g:MULTILINE_STATEMENT = '\v;'
 
 
 " Syntax names for comments
 let g:SYNTAX_COMMENT = '\vfishComment'
-let g:SYNTAX_STRING = '\vfishSingleQuoted|fishDoubleQuoted'
+let g:SYNTAX_STRING = '\vfishQuote'
 
 
 " Get the true shift width.
@@ -59,6 +60,12 @@ endfunction
 function! g:IsCommentOrString(lnum, col)
   let l:either = g:SYNTAX_COMMENT.'|'.g:SYNTAX_STRING
   return g:SyntaxName(a:lnum, a:col) =~ l:either
+endfunction
+
+
+" Check if a line is a multi-statement line.
+function! g:IsMultiStatement(lnum)
+  return g:SmartSearch(a:lnum, g:MULTILINE_STATEMENT)
 endfunction
 
 
@@ -167,12 +174,16 @@ function! GetFishIndent()
   if !pnum
     return -1
   endif
-
-  " Indent based on the current line.
-  let curline = g:GetTrimmedLine(v:lnum)
-  let prevline = g:GetTrimmedLine(pnum)
   let ind = indent(pnum)
 
+  if g:IsMultiStatement(pnum)
+    return ind
+  endif
+
+  " Indent based on the current line.
+  let prevline = g:GetTrimmedLine(pnum)
+  " TODO: This doesn't handle multi-line strings
+  " and is real stupid about ending continuations.
   if prevline =~ g:CONTINUATION
     return ind + (g:Shiftwidth() * 2)
   endif
@@ -181,6 +192,7 @@ function! GetFishIndent()
     let ind += g:Shiftwidth()
   endif
 
+  let curline = g:GetTrimmedLine(v:lnum)
   if curline =~ g:OUTDENT_DURING
     let ind -= g:Shiftwidth()
   endif
